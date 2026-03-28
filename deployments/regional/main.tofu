@@ -1,5 +1,5 @@
-# OpenTofu Remote State Datasource
-# https://opentofu.org/docs/language/state/remote-state-data/
+# OpenTofu Remote State Data Source
+# https://opentofu.org/docs/language/state/remote-state-data
 
 data "terraform_remote_state" "main" {
   backend = "gcs"
@@ -219,6 +219,9 @@ resource "kubernetes_secret_v1" "github_app_credentials" {
   }
 }
 
+# Kubernetes Secret Resource
+# https://search.opentofu.org/provider/hashicorp/kubernetes/latest/docs/resources/secret_v1
+
 resource "kubernetes_secret_v1" "postgres" {
   data = {
     POSTGRES_USER     = "backstage"
@@ -230,6 +233,9 @@ resource "kubernetes_secret_v1" "postgres" {
     namespace = "backstage"
   }
 }
+
+# Random Password Resource
+# https://search.opentofu.org/provider/hashicorp/random/latest/docs/resources/password
 
 resource "random_password" "this" {
   length  = 12

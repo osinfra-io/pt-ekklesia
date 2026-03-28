@@ -60,16 +60,16 @@ variable "datadog_app_key" {
   sensitive   = true
 }
 
-variable "github_app_id" {
-  description = "GitHub App ID"
-  type        = number
-  default     = 1102240
-}
-
 variable "github_app_client_id" {
   description = "GitHub App Client ID"
   type        = string
   default     = "Iv23liBR7fZfikt1WnLb"
+}
+
+variable "github_app_id" {
+  description = "GitHub App ID"
+  type        = number
+  default     = 1102240
 }
 
 variable "github_app_client_secret" {

@@ -1,6 +1,3 @@
-# Required Providers
-# https://opentofu.org/docs/language/providers/requirements/
-
 terraform {
   # State and Plan Encryption
   # https://opentofu.org/docs/language/state/encryption

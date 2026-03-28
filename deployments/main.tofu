@@ -3,7 +3,7 @@
 
 module "datadog" {
   source = "github.com/osinfra-io/pt-arche-datadog-google-integration?ref=a0f6388bd28937e49871f3e717740cf6775507ca" # v0.4.1
-  count  = var.datadog_enable ? 1 : 0
+  count  = local.datadog_count
 
   api_key                            = var.datadog_api_key
   is_cspm_enabled                    = true

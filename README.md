@@ -1,6 +1,7 @@
 # <img align="left" width="45" height="45" src="https://github.com/user-attachments/assets/2b9ec893-58ff-4bf3-94c9-fc321d3a173c"> Backstage
 
 [![Dependabot](https://img.shields.io/github/actions/workflow/status/osinfra-io/pt-ekklesia/dependabot.yml?style=for-the-badge&logo=github&color=2088FF&label=Dependabot)](https://github.com/osinfra-io/pt-ekklesia/actions/workflows/dependabot.yml)
+[![Datadog Security Enabled](https://img.shields.io/badge/Datadog%20Security-Enabled-632CA6?style=for-the-badge&logo=datadog)](https://app.datadoghq.com/security/code-security/repositories?repository_id=pt-ekklesia)
 
 ## 📄 Repository Description
 
