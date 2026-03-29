@@ -2,6 +2,8 @@
 # https://opentofu.org/docs/language/values/locals
 
 locals {
+  backstage_helm_values = file("${path.module}/helm/backstage.yml")
+
   datadog_mci_synthetic_url          = module.core_helpers.environment == "production" ? "https://gcp.osinfra.io/${local.datadog_synthetic_service}/metadata/cluster-name" : "https://${module.core_helpers.env}.gcp.osinfra.io/${local.datadog_synthetic_service}/metadata/cluster-name"
   datadog_synthetic_message_critical = module.core_helpers.environment == "production" ? "@hangouts-Platform-CriticalHighPriority" : ""
   datadog_synthetic_message_medium   = module.core_helpers.environment == "production" ? "@hangouts-Platform-MediumLowInfoPriority" : ""
@@ -28,6 +30,8 @@ locals {
     }
   } : {}
 
+  github_app_private_key = base64decode(var.github_app_private_key)
+
   helm_values = [
     for k, v in local.helm_values_map : {
       name  = k
@@ -40,7 +44,7 @@ locals {
     "backstage.appConfig.app.baseUrl"                    = var.backstage_app_config_base_url
     "backstage.appConfig.backend.baseUrl"                = var.backstage_app_config_base_url
     "backstage.appConfig.backend.cors.origin"            = var.backstage_app_config_base_url
-    "backstage.extraContainers[0].args[2]"               = "${data.google_project.backstage.project_id}:${module.core_helpers.region}:${module.cloud_sql.instance}"
+    "backstage.extraContainers[0].args[2]"               = "${data.google_project.shared_vpc_host.project_id}:${module.core_helpers.region}:${module.cloud_sql.instance}"
     "backstage.image.registry"                           = local.registry
     "backstage.image.tag"                                = var.backstage_version
     "backstage.podLabels.tags\\.datadoghq\\.com/env"     = module.core_helpers.environment

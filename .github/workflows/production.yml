@@ -1,0 +1,171 @@
+name: Production
+run-name: ${{ github.event.workflow_run.display_title || 'Production' }}
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Non-Production
+    types:
+      - completed
+    branches:
+      - main
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build_and_push:
+    name: Build and push
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_commit.author.name != 'dependabot[bot]')
+    env:
+      YARN_ENABLE_HARDENED_MODE: 0
+
+    steps:
+      # GitHub - Checkout
+      # https://github.com/marketplace/actions/checkout
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      # Setup Node
+      # https://github.com/marketplace/actions/setup-node-js-environment
+
+      - name: Setup Node
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 20.x
+          cache: "yarn"
+          cache-dependency-path: |
+            app/yarn.lock
+            app/package.json
+
+      - name: Yarn install
+        working-directory: app
+        run: |
+          yarn install --immutable
+          yarn tsc
+          yarn build:backend
+
+      # Google Cloud Platform - Create Credentials
+      # https://github.com/marketplace/actions/authenticate-to-google-cloud
+
+      - name: Create credentials
+        id: create_credentials
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          token_format: access_token
+          service_account: plt-backstage-github@plt-lz-backend-tf69-prod.iam.gserviceaccount.com
+          workload_identity_provider: projects/557265520053/locations/global/workloadIdentityPools/github-actions/providers/github-actions-oidc
+          access_token_lifetime: 300s
+
+      # Docker Buildx
+      # https://github.com/marketplace/actions/docker-setup-buildx
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      # Docker Login
+      # https://github.com/marketplace/actions/docker-login
+
+      - name: Login to Google Artifact Registry
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          registry: us-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.create_credentials.outputs.access_token }}
+
+      # Build and Push Docker to Google Artifact Registry
+      # https://github.com/marketplace/actions/build-and-push-docker-images
+
+      - name: Build and push to Google Artifact Registry
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        with:
+          tags: us-docker.pkg.dev/plt-lz-services-tf79-prod/plt-docker-standard/backstage:${{ github.event.workflow_run.head_sha || github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          context: ./app
+          file: ./app/packages/backend/Dockerfile
+          build-args: |
+            DD_GIT_REPOSITORY_URL=https://github.com/${{ github.repository }}
+            DD_GIT_COMMIT_SHA=${{ github.event.workflow_run.head_sha || github.sha }}
+          push: true
+
+  main:
+    name: "Main"
+    uses: osinfra-io/pt-techne-opentofu-workflows/.github/workflows/plan-and-apply.yml@3c6dd71a92e792a616e6565447fb7d063e5d290f # v0.3.2
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_commit.author.name != 'dependabot[bot]')
+    needs: build_and_push
+    with:
+      checkout_ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      github_environment: "Production: Main"
+      service_account: plt-backstage-github@plt-lz-backend-tf69-prod.iam.gserviceaccount.com
+      opentofu_kms_encryption_key: projects/plt-lz-backend-tf69-prod/locations/us/keyRings/state-encryption/cryptoKeys/default
+      opentofu_plan_args: -var-file=tfvars/production.tfvars
+      opentofu_state_bucket: plt-backstage-53a5-prod
+      opentofu_version: ${{ vars.OPENTOFU_VERSION }}
+      opentofu_workspace: main-production
+      working_directory: deployments
+      workload_identity_provider: projects/557265520053/locations/global/workloadIdentityPools/github-actions/providers/github-actions-oidc
+    secrets:
+      opentofu_plan_secret_args: >-
+        -var=datadog_api_key=${{ secrets.DATADOG_API_KEY }}
+        -var=datadog_app_key=${{ secrets.DATADOG_APP_KEY }}
+
+  us_east1_b:
+    name: "Production Regional: us-east1-b"
+    uses: osinfra-io/pt-techne-opentofu-workflows/.github/workflows/plan-and-apply.yml@3c6dd71a92e792a616e6565447fb7d063e5d290f # v0.3.2
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_commit.author.name != 'dependabot[bot]')
+    needs: main
+    with:
+      checkout_ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      github_environment: "Production: Regional - us-east1-b"
+      service_account: plt-backstage-github@plt-lz-backend-tf69-prod.iam.gserviceaccount.com
+      opentofu_kms_encryption_key: projects/plt-lz-backend-tf69-prod/locations/us/keyRings/state-encryption/cryptoKeys/default
+      opentofu_plan_args: -var-file=tfvars/us-east1-b-production.tfvars -var=backstage_version=${{ github.event.workflow_run.head_sha || github.sha }}
+      opentofu_state_bucket: plt-backstage-53a5-prod
+      opentofu_version: ${{ vars.OPENTOFU_VERSION }}
+      opentofu_workspace: us-east1-b-production
+      working_directory: deployments/regional
+      workload_identity_provider: projects/557265520053/locations/global/workloadIdentityPools/github-actions/providers/github-actions-oidc
+    secrets:
+      opentofu_plan_secret_args: >-
+        -var=datadog_api_key=${{ secrets.DATADOG_API_KEY }}
+        -var=datadog_app_key=${{ secrets.DATADOG_APP_KEY }}
+        -var=github_app_client_secret=${{ secrets.APP_CLIENT_SECRET }}
+        -var=github_app_private_key=${{ secrets.APP_PRIVATE_KEY }}
+        -var=github_app_webhook_secret=${{ secrets.APP_WEBHOOK_SECRET }}
+        -var=github_auth_client_secret=${{ secrets.AUTH_CLIENT_SECRET }}
+
+  datadog_synthetic_tests:
+    name: "Production: Datadog synthetic tests"
+    runs-on: ubuntu-latest
+    needs: us_east1_b
+    steps:
+      # Datadog Synthetics CI
+      # https://github.com/marketplace/actions/datadog-synthetics-ci
+
+      - name: Run Datadog synthetic tests
+        uses: datadog/synthetics-ci-github-action@c84a23515bda46d8a060f77a6ad88644377f90be # v4.0.0
+        with:
+          api-key: ${{ secrets.DATADOG_API_KEY }}
+          app-key: ${{ secrets.DATADOG_APP_KEY }}
+          fail-on-critical-errors: true
+          test-search-query: "env:production service:backstage team:platform-backstage state:live"

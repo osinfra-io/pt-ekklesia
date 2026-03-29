@@ -1,18 +1,3 @@
-# OpenTofu Remote State Data Source
-# https://opentofu.org/docs/language/state/remote-state-data
-
-data "terraform_remote_state" "main" {
-  backend = "gcs"
-
-  config = {
-    bucket             = var.remote_bucket
-    kms_encryption_key = var.state_kms_encryption_key
-    prefix             = module.core_helpers.repository
-  }
-
-  workspace = "main-${module.core_helpers.environment}"
-}
-
 # Google Cloud SQL Module (osinfra.io)
 # https://github.com/osinfra-io/opentofu-google-cloud-sql
 
@@ -25,7 +10,7 @@ module "cloud_sql" {
   labels                         = module.core_helpers.labels
   network                        = "standard-shared"
   point_in_time_recovery_enabled = false
-  project                        = data.google_project.backstage.project_id
+  project                        = data.google_project.shared_vpc_host.project_id
   region                         = module.core_helpers.region
 }
 
@@ -36,15 +21,15 @@ resource "datadog_synthetics_test" "this" {
   for_each = local.datadog_synthetic_tests
 
   assertion {
-    type     = "statusCode"
     operator = "is"
     target   = "200"
+    type     = "statusCode"
   }
 
   assertion {
-    type     = "responseTime"
     operator = "lessThan"
     target   = 1000
+    type     = "responseTime"
   }
 
   locations = each.value.locations
@@ -103,7 +88,7 @@ resource "google_sql_database" "this" {
   deletion_policy = "ABANDON"
   instance        = module.cloud_sql.instance
   name            = "backstage"
-  project         = data.google_project.backstage.project_id
+  project         = data.google_project.shared_vpc_host.project_id
 }
 
 # Cloud SQL Database Users
@@ -114,7 +99,7 @@ resource "google_sql_user" "this" {
   instance        = module.cloud_sql.instance
   name            = "backstage"
   password        = random_password.this.result
-  project         = data.google_project.backstage.project_id
+  project         = data.google_project.shared_vpc_host.project_id
 }
 
 # Helm Release
@@ -134,7 +119,7 @@ resource "helm_release" "backstage" {
   set        = local.helm_values
 
   values = [
-    file("${path.module}/helm/backstage.yml")
+    local.backstage_helm_values
   ]
 
   version = "2.6.0"
@@ -207,7 +192,7 @@ resource "kubernetes_secret_v1" "github_app_credentials" {
     GITHUB_APP_CLIENT_ID      = var.github_app_client_id
     GITHUB_APP_CLIENT_SECRET  = var.github_app_client_secret
     GITHUB_APP_ID             = var.github_app_id
-    GITHUB_APP_PRIVATE_KEY    = base64decode(var.github_app_private_key)
+    GITHUB_APP_PRIVATE_KEY    = local.github_app_private_key
     GITHUB_APP_WEBHOOK_SECRET = var.github_app_webhook_secret
     GITHUB_AUTH_CLIENT_ID     = var.github_auth_client_id
     GITHUB_AUTH_CLIENT_SECRET = var.github_auth_client_secret
@@ -219,13 +204,10 @@ resource "kubernetes_secret_v1" "github_app_credentials" {
   }
 }
 
-# Kubernetes Secret Resource
-# https://search.opentofu.org/provider/hashicorp/kubernetes/latest/docs/resources/secret_v1
-
 resource "kubernetes_secret_v1" "postgres" {
   data = {
-    POSTGRES_USER     = "backstage"
     POSTGRES_PASSWORD = random_password.this.result
+    POSTGRES_USER     = "backstage"
   }
 
   metadata {
