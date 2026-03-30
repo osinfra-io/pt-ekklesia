@@ -95,7 +95,7 @@ jobs:
 
   main:
     name: "Main"
-    uses: osinfra-io/pt-techne-opentofu-workflows/.github/workflows/plan-and-apply.yml@3c6dd71a92e792a616e6565447fb7d063e5d290f # v0.3.2
+    uses: osinfra-io/pt-techne-opentofu-workflows/.github/workflows/plan-and-apply.yml@3f9adb2285dd7249063dbaa9cfcabd0c7966e3e2 # v0.3.3
     if: github.event.head_commit.author.username != 'dependabot[bot]'
     needs: build_and_push
     with:
@@ -116,7 +116,7 @@ jobs:
 
   us_east1_b:
     name: "Non-Production Regional: us-east1-b"
-    uses: osinfra-io/pt-techne-opentofu-workflows/.github/workflows/plan-and-apply.yml@3c6dd71a92e792a616e6565447fb7d063e5d290f # v0.3.2
+    uses: osinfra-io/pt-techne-opentofu-workflows/.github/workflows/plan-and-apply.yml@3f9adb2285dd7249063dbaa9cfcabd0c7966e3e2 # v0.3.3
     if: github.event.head_commit.author.username != 'dependabot[bot]'
     needs: main
     with:
